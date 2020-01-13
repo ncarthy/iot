@@ -5,6 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.Device.I2c;
+// using System.Drawing;
+using System.Drawing.Text;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
@@ -40,8 +42,32 @@ namespace Iot.Device.Ssd13xx.Samples
             {
                 Initialize(device);
                 ClearScreen(device);
-                // SendMessage(device, "Hello .NET IoT!!!");
-                // SendMessage(device, DisplayIpAddress());
+
+                string familyName;
+                System.Drawing.FontFamily[] fontFamilies;
+                InstalledFontCollection installedFontCollection = new InstalledFontCollection();
+
+                // Get the array of FontFamily objects.
+                fontFamilies = installedFontCollection.Families;
+
+                // The loop below creates a large string that is a comma-separated
+                // list of all font family names.
+                int count = fontFamilies.Length;
+                for (int j = 0; j < count; ++j)
+                {
+                    familyName = fontFamilies[j].Name;
+                    Console.WriteLine(familyName);
+                    if (familyName != "Droid Sans Fallback")
+                    {
+                        DisplayText(device, familyName, 12, 0, FontStyle.Regular, familyName);
+                        Thread.Sleep(1000);
+                    }
+                }
+
+                DisplayMessage(device, "HW off at 12:45", "CH on at 13:15");
+                // DisplayText(device, "HW off at 12:45");
+                Console.WriteLine("Press any key to continue...");
+                Console.Read();
                 DisplayImages(device);
                 DisplayClock(device);
                 ClearScreen(device);
@@ -211,6 +237,26 @@ namespace Iot.Device.Ssd13xx.Samples
             Console.WriteLine("Display clock");
             var fontSize = 25;
             var font = "DejaVu Sans";
+
+            /*
+            * Available Fonts:
+            * Piboto
+            * Noto Mono
+            * Liberation Sans
+            * PibotoLt
+            * Piboto
+            * Liberation Mono
+            * DejaVu Serif
+            * Liberation Serif
+            * Piboto
+            * FreeMono
+            * DejaVu Sans Mono
+            * FreeSans
+            * FreeSerif
+            * Piboto Condensed
+            * Droid Sans Fallback
+            * DejaVu Sans
+            */
             var fontsys = SystemFonts.CreateFont(font, fontSize, FontStyle.Italic);
             var y = 0;
 
@@ -235,6 +281,71 @@ namespace Iot.Device.Ssd13xx.Samples
                     }
 
                     Thread.Sleep(100);
+                }
+            }
+        }
+
+        private static void DisplayText(Ssd1306 ssd1306, string text, int fontSize = 10, int rowNumber = 0,
+            FontStyle fontStyle = FontStyle.Regular, string font = "DejaVu Sans")
+        {
+            Console.WriteLine("Display text: " + text);
+            var array = new string[] { text };
+            DisplayText(ssd1306, array, fontSize, rowNumber, fontStyle, font);
+        }
+
+        private static void DisplayText(Ssd1306 ssd1306, string[] text, int fontSize = 10, int rowNumber = 0,
+                FontStyle fontStyle = FontStyle.Regular, string font = "DejaVu Sans")
+        {
+            FontFamily fontFamily = null;
+            SystemFonts.TryFind(font, out fontFamily);
+            if (fontFamily == null)
+            {
+                throw new ApplicationException(String.Format($"Couldn't find that font: '%s'", font));
+            }
+
+            var fontsys = SystemFonts.CreateFont(font, fontSize, fontStyle);
+
+            using (Image<Rgba32> image = new Image<Rgba32>(128, 32))
+            {
+                // use System.Drawing?
+                // https://stackoverflow.com/a/32429991/6941165
+                image.Mutate(ctx => ctx
+                    .Fill(Rgba32.Black)
+                    .DrawText(text[0], fontsys, Rgba32.White,
+                        new SixLabors.Primitives.PointF(0, rowNumber)));
+
+                using (Image<Gray16> image_t = image.CloneAs<Gray16>())
+                {
+                    ssd1306.DisplayImage(image_t);
+                }
+            }
+        }
+
+        private static void DisplayMessage(Ssd1306 device, string yellowText, string blueText,
+           FontStyle fontStyle = FontStyle.Regular, string font = "DejaVu Sans")
+        {
+            FontFamily fontFamily = null;
+            SystemFonts.TryFind(font, out fontFamily);
+            if (fontFamily == null)
+            {
+                throw new ApplicationException(String.Format($"Couldn't find that font: '%s'", font));
+            }
+
+            var smallFont = SystemFonts.CreateFont(font, 10, fontStyle);
+            var largeFont = SystemFonts.CreateFont(font, 16, fontStyle);
+
+            using (Image<Rgba32> image = new Image<Rgba32>(128, 32))
+            {
+                image.Mutate(ctx => ctx
+                    .Fill(Rgba32.Black)
+                    .DrawText(yellowText, smallFont, Rgba32.White,
+                        new SixLabors.Primitives.PointF(0, 0))
+                    .DrawText(blueText, largeFont, Rgba32.White,
+                        new SixLabors.Primitives.PointF(0, 11)));
+
+                using (Image<Gray16> image_t = image.CloneAs<Gray16>())
+                {
+                    device.DisplayImage(image_t);
                 }
             }
         }
